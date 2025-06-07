@@ -4,6 +4,9 @@
 #
 name: "Auto compile with openwrt sdk"
 on:
+  push:
+    tags:
+      - "*"
   repository_dispatch:
   workflow_dispatch:
     inputs:
