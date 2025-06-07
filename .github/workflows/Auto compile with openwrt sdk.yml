@@ -1,89 +1,54 @@
-#
-# Copyright (c) 2022-2023 SMALLPROGRAM <https://github.com/smallprogram>
-# Description: Auto compile
-#
-name: "Auto compile with openwrt sdk"
+name: Build and Release
+
 on:
   push:
     tags:
       - "*"
-  repository_dispatch:
   workflow_dispatch:
-    inputs:
-      ssh:
-        description: 'SSH connection to Actions'
-        required: false
-        default: 'false'
-env:
-  TZ: Asia/Shanghai
-  passwall2: ${{ github.repository }}
-  packages: xiaorouji/openwrt-passwall-packages
 
+env:
+  PACKAGE_NAME: luci-app-passwall2
+  CACHE_DIR: ~/cache
 
 jobs:
-  job_check:
-    name: Check Version
-    runs-on: ubuntu-22.04
-    outputs:
-      passwall2_version: ${{ steps.check_version.outputs.latest_version }}
-      has_update: ${{ steps.check_version.outputs.has_update }}
-      prerelease: ${{ steps.check_version.outputs.prerelease }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.ref_name }}
-
-      - name: Check version
-        id: check_version
-        env:
-          url_tags: https://api.github.com/repos/${{ env.passwall2 }}/tags
-        run: |
-          cd luci-app-passwall2
-          latest_version=$(awk -F ':=' '/PKG_VERSION|PKG_RELEASE/ {print $2}' Makefile | sed ':a;N;s/\$(PKG_VERSION)-//;s/\n$//;s/\n/-/;ba')
-          has_update=$([ -z "$(wget -qO- -t1 -T2 ${{env.url_tags}} | grep \"${latest_version}\")" ] && echo true || echo false)
-          prerelease=$([ "${{ github.ref_name }}" == "main" ] && echo false || echo true)
-          echo "latest_version=${latest_version}" >> $GITHUB_OUTPUT
-          echo "has_update=${has_update}" >> $GITHUB_OUTPUT
-          echo "prerelease=${prerelease}" >> $GITHUB_OUTPUT
-          echo "latest_version: ${latest_version}"
-          echo "has_update: ${has_update}"
-          echo "prerelease: ${prerelease}"
-
-      - name: Prepare release
-        if: steps.check_version.outputs.has_update == 'true'
-        run: |
-          echo "## :mega:Update content" >> release.txt
-          echo "![](https://img.shields.io/github/downloads/${{ env.passwall2 }}/${{steps.check_version.outputs.latest_version}}/total?style=flat-square)" >> release.txt
-          echo "### Passwall2 Info" >> release.txt
-          echo "**:minidisc: Passwall2 Version: ${{steps.check_version.outputs.latest_version}}**" >> release.txt
-          touch release.txt
-
-      - name: Generate new tag & release
-        uses: softprops/action-gh-release@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{steps.check_version.outputs.latest_version}}
-          target_commitish: ${{ github.ref_name }}
-          prerelease: ${{steps.check_version.outputs.prerelease}}
-          body_path: release.txt
-
-
-  job_auto_compile:
-    if: ${{ needs.job_check.outputs.has_update == 'true' && needs.job_check.outputs.prerelease == 'false' }}
-    needs: job_check
-    runs-on: ubuntu-22.04
-    name: build (${{ matrix.platform }})
+  release:
+    name: Build ${{ matrix.arch }}-${{ matrix.sdk }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         arch:
           - aarch64_cortex-a53
+          # - aarch64_cortex-a72
+          # - aarch64_generic
+          # - arm_arm1176jzf-s_vfp
+          # - arm_arm926ej-s
+          # - arm_cortex-a15_neon-vfpv4
+          # - arm_cortex-a5_vfpv4
+          # - arm_cortex-a7
+          # - arm_cortex-a7_neon-vfpv4
+          # - arm_cortex-a8_vfpv3
+          # - arm_cortex-a9
+          # - arm_cortex-a9_neon
+          # - arm_cortex-a9_vfpv3-d16
+          # - arm_fa526
+          # - arm_mpcore
+          # - arm_xscale
+          # - i386_pentium-mmx
+          # - i386_pentium4
+          # - mips64_octeonplus
+          # - mips_24kc
+          # - mips_4kec
+          # - mips_mips32
+          # - mipsel_24kc
+          # - mipsel_24kc_24kf
+          # - mipsel_74kc
+          # - mipsel_mips32
+          # - x86_64
         sdk:
           - openwrt-22.03
           - SNAPSHOT
+
     env:
       SDK_URL_PATH: ${{ matrix.sdk_url_path }}
       SDK_NAME: ${{ matrix.sdk_name }}
